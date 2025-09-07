@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import json
 import pandas as pd
-from datetime import datetime, timedelta
 from core import analyze_watchlist
 
 # --- Login Credentials ---
@@ -34,14 +33,18 @@ page = st.sidebar.radio("Navigate", ["Dashboard", "Alerts", "Custom Analysis"])
 
 WATCHLIST = os.getenv("WATCHLIST", "AAPL,MSFT,GOOGL,AMZN,TSLA").split(",")
 
-# --- Helper function to run analysis ---
+# --- Helper function to run analysis safely ---
 def run_analysis():
     df = analyze_watchlist(WATCHLIST)
 
     alerts = []
     for _, row in df.iterrows():
-        analysis = row["analysis"]
-        current_price = row.get("current_price", 0)
+        analysis = row.get("analysis", None)
+        current_price = row.get("current_price", None)
+
+        # Skip rows with missing data
+        if analysis is None or current_price is None:
+            continue
 
         # Alert if near 5-week low/high
         if current_price <= analysis.get("5_weeks_low", 0) * 1.05:
@@ -65,6 +68,7 @@ if page == "Dashboard":
         with st.spinner("Running analysis..."):
             df, alerts = run_analysis()
             st.success("✅ Analysis completed!")
+
     if os.path.exists("latest_analysis.csv"):
         df = pd.read_csv("latest_analysis.csv")
         st.dataframe(df)
